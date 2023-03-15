@@ -9,3 +9,9 @@ Features
   - swapSingleHopExactAmountIn (sells all tokens for another)
   - swapSingleHopExactAmountOut (buys specific amount of tokens set by the caller)
 - Burn Liquidity tokens and remove liquidity you had provided.
+
+Note: The tests depend on contracts deployed on mainnet and can only be performed by forking the mainnet. Please create an .env file and set up the following for the same:
+
+URL=YOUR RPC PROVIDER URL
+
+PRIVATE_KEY=PRIVATEKEY OF YOUR TEST-WALLET

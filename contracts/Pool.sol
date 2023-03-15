@@ -3,6 +3,7 @@ pragma solidity 0.8.0;
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import "contracts/Cal.sol";
 import "contracts/Tus.sol";
 
@@ -67,19 +68,23 @@ contract Pool {
             address(this),
             block.timestamp
         );
+        calyp.transfer(msg.sender, amountA);
+        tus.transfer(msg.sender, amountB);
     }
 
     function swapSingleHopExactAmountIn(
         uint amountIn,
-        uint amountOutMin
+        uint amountOutMin,
+        address fromToken,
+        address toToken
     ) external returns (uint amountOut) {
-        calyp.transferFrom(msg.sender, address(this), amountIn);
-        calyp.approve(address(uniswapV2Router), amountIn);
+        IERC20(fromToken).transferFrom(msg.sender, address(this), amountIn);
+        IERC20(fromToken).approve(address(uniswapV2Router), amountIn);
 
         address[] memory path;
         path = new address[](2);
-        path[0] = address(calyp);
-        path[1] = address(tus);
+        path[0] = address(fromToken);
+        path[1] = address(toToken);
 
         uint[] memory amounts = uniswapV2Router.swapExactTokensForTokens(
             amountIn,
@@ -89,20 +94,29 @@ contract Pool {
             block.timestamp
         );
 
-        return amounts[1];
+        // send swapped token to the caller
+        uint toSend = IERC20(toToken).balanceOf(address(this));
+        require(
+            IERC20(toToken).transfer(msg.sender, toSend),
+            "Transfer Failed"
+        );
+
+        return toSend;
     }
 
     function swapSingleHopExactAmountOut(
         uint amountOutDesired,
-        uint amountInMax
+        uint amountInMax,
+        address fromToken,
+        address toToken
     ) external returns (uint amountOut) {
-        calyp.transferFrom(msg.sender, address(this), amountInMax);
-        calyp.approve(address(uniswapV2Router), amountInMax);
+        IERC20(fromToken).transferFrom(msg.sender, address(this), amountInMax);
+        IERC20(fromToken).approve(address(uniswapV2Router), amountInMax);
 
         address[] memory path;
         path = new address[](2);
-        path[0] = address(calyp);
-        path[1] = address(tus);
+        path[0] = fromToken;
+        path[1] = toToken;
 
         uint[] memory amounts = uniswapV2Router.swapTokensForExactTokens(
             amountOutDesired,
@@ -112,10 +126,17 @@ contract Pool {
             block.timestamp
         );
 
-        // Refund calyp to msg.sender
+        // Refund residue calyp to msg.sender
         if (amounts[0] < amountInMax) {
-            calyp.transfer(msg.sender, amountInMax - amounts[0]);
+            IERC20(fromToken).transfer(msg.sender, amountInMax - amounts[0]);
         }
+
+        // send swapped token to the caller
+        uint toSend = IERC20(toToken).balanceOf(address(this));
+        require(
+            IERC20(toToken).transfer(msg.sender, toSend),
+            "Transfer Failed"
+        );
 
         return amounts[1];
     }
